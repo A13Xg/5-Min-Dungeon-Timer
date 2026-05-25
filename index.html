@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="5-Minute Dungeon companion timer with stage tracking, beeps, and immersive dungeon ambience." />
+    <title>5-Minute Dungeon Companion</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="theme-dark graphics-advanced">
+    <div class="fx-layer" aria-hidden="true">
+      <div class="smoke smoke-a"></div>
+      <div class="smoke smoke-b"></div>
+      <canvas id="particles"></canvas>
+    </div>
+
+    <header class="app-header">
+      <h1>5-Minute Dungeon</h1>
+      <img src="./assets/dragon.svg" alt="Dragon crest" class="dragon" />
+
+      <button id="menuButton" class="menu-button" type="button" aria-expanded="false" aria-controls="settingsPanel" aria-label="Open settings">
+        <span></span><span></span><span></span>
+      </button>
+
+      <aside id="settingsPanel" class="settings-panel" aria-label="Settings">
+        <label for="musicToggle"><input id="musicToggle" type="checkbox" checked /> Ambient music</label>
+        <label for="beepToggle"><input id="beepToggle" type="checkbox" checked /> Beeps</label>
+        <label for="wakeToggle"><input id="wakeToggle" type="checkbox" /> Keep awake</label>
+        <label for="modeToggle"><input id="modeToggle" type="checkbox" checked /> Dark mode</label>
+        <label for="graphicsToggle"><input id="graphicsToggle" type="checkbox" checked /> Advanced graphics</label>
+        <a href="https://github.com/A13Xg/5-Min-Dungeon-Timer" target="_blank" rel="noopener noreferrer">GitHub Repo</a>
+      </aside>
+    </header>
+
+    <main class="app-main">
+      <section class="progress-wrap" aria-label="Round progress">
+        <div class="progress-track" id="progressTrack"></div>
+        <div class="progress-dots" id="progressDots"></div>
+      </section>
+
+      <p id="timerText" class="timer" aria-live="polite">5:00:0</p>
+
+      <section class="controls" aria-label="Timer controls">
+        <div class="left-controls">
+          <button id="resetButton" class="btn btn-secondary" type="button">Reset</button>
+          <button id="backButton" class="btn btn-small" type="button">Back</button>
+        </div>
+
+        <button id="playPauseButton" class="btn btn-main" type="button" aria-label="Start timer">Start</button>
+
+        <button id="nextButton" class="btn btn-secondary" type="button">Next</button>
+      </section>
+
+      <section class="badges" aria-live="polite">
+        <div id="stageBadge" class="badge">Stage 1 / 5</div>
+        <div id="cardBadge" class="badge">Dungeon Door Cards: 20</div>
+      </section>
+
+      <section class="quick-rules">
+        <h2>Quick Play</h2>
+        <ul>
+          <li>Play cooperatively in real time: no turns, communicate fast.</li>
+          <li>Each stage is a 5-minute countdown.</li>
+          <li>Clear cards and boss before time runs out, then advance.</li>
+          <li>Stages scale from 20 to 40 dungeon door cards.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="./script.js" defer></script>
+  </body>
+</html>

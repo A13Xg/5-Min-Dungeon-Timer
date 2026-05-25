@@ -1,0 +1,327 @@
+:root {
+  --bg: #0f0f14;
+  --panel: #1e1c28;
+  --ink: #f4eee0;
+  --muted: #b6af9b;
+  --accent: #52d673;
+  --line: #3f384c;
+  --danger: #f64f5b;
+  --warning: #f2b940;
+  --teal: #3cc7c4;
+  --shadow: 0 10px 0 #0a0a0d;
+  --btn-small-offset: -8px;
+}
+
+body.theme-light {
+  --bg: #f4efe2;
+  --panel: #fff8eb;
+  --ink: #161214;
+  --muted: #52484f;
+  --line: #b7ab98;
+  --shadow: 0 8px 0 #b3a896;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", "Verdana", sans-serif;
+  background: radial-gradient(circle at top, #241f35, var(--bg));
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body.theme-light {
+  background: radial-gradient(circle at top, #fffdf5, var(--bg));
+}
+
+.fx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.smoke {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(36px);
+  opacity: 0.17;
+  animation: drift 16s linear infinite;
+}
+
+.smoke-a {
+  width: 45vw;
+  height: 45vw;
+  background: #6c5b8f;
+  top: -5vh;
+  left: -10vw;
+}
+
+.smoke-b {
+  width: 35vw;
+  height: 35vw;
+  background: #ac3b61;
+  right: -8vw;
+  bottom: 10vh;
+  animation-duration: 20s;
+}
+
+#particles {
+  width: 100%;
+  height: 100%;
+}
+
+.app-header,
+.app-main {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.app-header {
+  text-align: center;
+  padding-top: 1.2rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: clamp(1.2rem, 4.8vw, 2rem);
+}
+
+.dragon {
+  width: clamp(56px, 16vw, 88px);
+  margin-top: 0.45rem;
+  filter: drop-shadow(0 0 12px #eb7f54aa);
+}
+
+.menu-button {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  width: 44px;
+  height: 44px;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.menu-button span {
+  width: 22px;
+  height: 3px;
+  background: var(--ink);
+}
+
+.settings-panel {
+  position: absolute;
+  right: 1rem;
+  top: 3.9rem;
+  width: min(75vw, 240px);
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow);
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+  transform-origin: top right;
+  transform: scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.settings-panel.open {
+  transform: scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-panel label,
+.settings-panel a {
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.settings-panel a { font-weight: 700; }
+
+.progress-wrap {
+  margin-top: 0.6rem;
+  position: relative;
+  padding: 1rem 0;
+}
+
+.progress-track {
+  height: 8px;
+  border: 2px solid var(--ink);
+  background: linear-gradient(90deg, #2c2740, #1b1829);
+  box-shadow: var(--shadow);
+}
+
+.progress-dots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.dot {
+  width: clamp(14px, 4.2vw, 18px);
+  height: clamp(14px, 4.2vw, 18px);
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  transition: transform 220ms ease, background 220ms ease;
+}
+
+.dot.active,
+.dot.done {
+  background: var(--accent);
+  transform: scale(1.1);
+}
+
+.dot.done {
+  background: #3f8ff0;
+}
+
+.timer {
+  text-align: center;
+  margin: 0.2rem 0 1rem;
+  font-size: clamp(2.6rem, 16vw, 5.3rem);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 20px color-mix(in oklab, var(--accent) 45%, transparent);
+  transition: color 220ms ease, transform 140ms ease;
+}
+
+.timer.pulse {
+  transform: scale(1.02);
+}
+
+.timer.flash {
+  animation: flash 0.45s infinite;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.left-controls {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.btn {
+  border: 3px solid var(--ink);
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow);
+  transition: transform 130ms ease, background 160ms ease, color 160ms ease;
+}
+
+.btn:active { transform: translateY(2px); }
+.btn-small:active { transform: translateX(var(--btn-small-offset)) translateY(2px); }
+
+.btn-main {
+  min-height: 88px;
+  font-size: clamp(1.35rem, 6.8vw, 2.2rem);
+  background: var(--accent);
+  color: #101010;
+}
+
+.btn-secondary {
+  min-height: 58px;
+  font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+}
+
+.btn-small {
+  min-height: 42px;
+  font-size: 0.8rem;
+  transform: translateX(var(--btn-small-offset));
+}
+
+.badges {
+  margin: 1.1rem 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.badge {
+  border: 2px solid var(--ink);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.quick-rules {
+  margin-top: 0.7rem;
+  border: 2px solid var(--ink);
+  background: color-mix(in oklab, var(--panel) 90%, #000 10%);
+  box-shadow: var(--shadow);
+  padding: 0.7rem;
+}
+
+.quick-rules h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.quick-rules ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+body.graphics-simple .fx-layer,
+body.graphics-simple .timer {
+  animation: none;
+  text-shadow: none;
+}
+
+body.graphics-simple .smoke,
+body.graphics-simple #particles {
+  display: none;
+}
+
+@keyframes drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(12vw, 4vh); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes flash {
+  0%, 100% { color: var(--danger); }
+  50% { color: #ffe3e5; }
+}
+
+@media (max-width: 440px) {
+  .controls { grid-template-columns: 1fr 1.25fr 1fr; }
+  .btn-main { min-height: 76px; }
+  .btn-secondary { min-height: 52px; }
+}
+
+@media (min-width: 900px) {
+  .app-main { padding-top: 0.5rem; }
+}
