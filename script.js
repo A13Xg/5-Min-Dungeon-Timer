@@ -98,7 +98,7 @@ let audioUnlockPrimed = false;
 let ambiencePlayer = null;
 let ambienceStarted = false;
 let ambiencePausedByTimer = false;
-let lastTrackIndex = -1;
+let ambientTrackIndex = -1;
 let wakeRetryTimer = null;
 let fxContainer = null;
 let fallbackParticlesActive = false;
@@ -355,6 +355,10 @@ function resetStage(playFeedback = false) {
   lastUrgencyBeep = null;
   flashState = false;
   previousRemaining = ROUND_SECONDS;
+  if (timerText) {
+    timerText.classList.remove('flash');
+    timerText.style.color = getColor(ROUND_SECONDS);
+  }
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
   appendDebugEvent('timer', `stage ${stage} reset`);
@@ -558,6 +562,9 @@ function beepSequence(count, spacing = DEFAULT_BEEP_SPACING, freq = 360, volume 
 function clearPendingBeeps() {
   pendingBeepTimers.forEach((timer) => clearTimeout(timer));
   pendingBeepTimers = [];
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
 }
 
 function initializeVolumeControls() {
@@ -824,25 +831,21 @@ function buildAmbientPlayer() {
   return ambiencePlayer;
 }
 
-function getRandomAmbientTrack() {
+function getNextAmbientTrack() {
   if (!ambientTracks.length) return null;
-  if (ambientTracks.length === 1) {
-    lastTrackIndex = 0;
-    return ambientTracks[0];
+  if (ambientTrackIndex < 0 || ambientTrackIndex >= ambientTracks.length) {
+    ambientTrackIndex = Math.floor(Math.random() * ambientTracks.length);
+    return ambientTracks[ambientTrackIndex];
   }
 
-  let nextIndex = lastTrackIndex;
-  while (nextIndex === lastTrackIndex) {
-    nextIndex = Math.floor(Math.random() * ambientTracks.length);
-  }
-  lastTrackIndex = nextIndex;
-  return ambientTracks[nextIndex];
+  ambientTrackIndex = (ambientTrackIndex + 1) % ambientTracks.length;
+  return ambientTracks[ambientTrackIndex];
 }
 
 function playRandomAmbientTrack(skipIfPaused = false) {
   if (!musicToggle.checked && skipIfPaused) return;
   const player = buildAmbientPlayer();
-  const track = getRandomAmbientTrack();
+  const track = getNextAmbientTrack();
   if (!track) {
     appendDebugEvent('ambient', 'no .mp3 tracks discovered in ambient directory');
     return;
