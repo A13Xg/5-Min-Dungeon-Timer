@@ -375,12 +375,12 @@ function setGraphics(advanced) {
 }
 
 function setupParticles() {
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  particleCanvas.width = window.innerWidth * devicePixelRatio;
-  particleCanvas.height = window.innerHeight * devicePixelRatio;
+  const pixelRatio = window.devicePixelRatio || 1;
+  particleCanvas.width = window.innerWidth * pixelRatio;
+  particleCanvas.height = window.innerHeight * pixelRatio;
   particleCanvas.style.width = `${window.innerWidth}px`;
   particleCanvas.style.height = `${window.innerHeight}px`;
-  pctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  pctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
   particles = Array.from({ length: PARTICLE_COUNT }, () => ({
     x: Math.random() * window.innerWidth,
