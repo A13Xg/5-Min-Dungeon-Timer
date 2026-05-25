@@ -1,5 +1,8 @@
 const TOTAL_STAGES = 5;
 const ROUND_SECONDS = 300;
+const PARTICLE_COUNT = 38;
+const NOISE_AMPLITUDE = 0.18;
+const MINUTE_BEEP_THRESHOLDS = [240, 180, 120, 60];
 
 const timerText = document.getElementById('timerText');
 const playPauseButton = document.getElementById('playPauseButton');
@@ -26,6 +29,7 @@ let wakeLock = null;
 let minuteCue = null;
 let lastUrgencyBeep = null;
 let flashState = false;
+let previousRemaining = ROUND_SECONDS;
 
 let audioCtx;
 let ambienceNodes = [];
@@ -106,6 +110,7 @@ function startTimer() {
   if (wakeToggle.checked) requestWakeLock();
   running = true;
   startTimestamp = performance.now();
+  previousRemaining = Math.max(0, ROUND_SECONDS - elapsedBeforePause);
   playPauseButton.textContent = 'Pause';
   playPauseButton.setAttribute('aria-label', 'Pause timer');
   tick();
@@ -114,7 +119,9 @@ function startTimer() {
 function pauseTimer() {
   running = false;
   if (frameId) cancelAnimationFrame(frameId);
-  elapsedBeforePause += (performance.now() - startTimestamp) / 1000;
+  if (startTimestamp !== null) {
+    elapsedBeforePause += (performance.now() - startTimestamp) / 1000;
+  }
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
 }
@@ -127,6 +134,7 @@ function resetStage(playFeedback = false) {
   minuteCue = null;
   lastUrgencyBeep = null;
   flashState = false;
+  previousRemaining = ROUND_SECONDS;
   playPauseButton.textContent = 'Start';
   playPauseButton.setAttribute('aria-label', 'Start timer');
   render(ROUND_SECONDS, true);
@@ -147,6 +155,7 @@ function tick() {
   const remaining = Math.max(0, ROUND_SECONDS - elapsed);
   render(remaining);
   handleBeeps(remaining);
+  previousRemaining = remaining;
 
   if (remaining <= 0) {
     running = false;
@@ -199,12 +208,15 @@ function getColor(remaining) {
 
 function handleBeeps(remaining) {
   if (!beepToggle.checked) return;
-  const whole = Math.floor(remaining);
+  const wholeSeconds = Math.floor(remaining);
+  const previousWholeSeconds = Math.floor(previousRemaining);
 
-  if ([240, 180, 120, 60].includes(whole) && minuteCue !== whole) {
-    minuteCue = whole;
-    beepSequence(whole / 60, 0.08, 370, 0.09);
-  }
+  MINUTE_BEEP_THRESHOLDS.forEach((threshold) => {
+    if (wholeSeconds <= threshold && previousWholeSeconds > threshold && minuteCue !== threshold) {
+      minuteCue = threshold;
+      beepSequence(threshold / 60, 0.08, 370, 0.09);
+    }
+  });
 
   const interval = urgencyInterval(remaining);
   if (!interval) return;
@@ -261,6 +273,16 @@ function beepSequence(count, spacing = 0.09, freq = 360, volume = 0.07) {
   }
 }
 
+function generateNoiseBuffer() {
+  const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) {
+    const noiseValue = (Math.random() * 2 - 1) * NOISE_AMPLITUDE;
+    data[i] = noiseValue;
+  }
+  return noiseBuffer;
+}
+
 function startAmbience() {
   ensureAudio();
   if (ambienceStarted) return;
@@ -278,10 +300,7 @@ function startAmbience() {
   high.frequency.value = 116;
 
   const noise = audioCtx.createBufferSource();
-  const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
-  const data = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * 0.18;
-  noise.buffer = noiseBuffer;
+  noise.buffer = generateNoiseBuffer();
   noise.loop = true;
 
   const noiseFilter = audioCtx.createBiquadFilter();
@@ -356,18 +375,18 @@ function setGraphics(advanced) {
 }
 
 function setupParticles() {
-  const ratio = window.devicePixelRatio || 1;
-  particleCanvas.width = window.innerWidth * ratio;
-  particleCanvas.height = window.innerHeight * ratio;
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  particleCanvas.width = window.innerWidth * devicePixelRatio;
+  particleCanvas.height = window.innerHeight * devicePixelRatio;
   particleCanvas.style.width = `${window.innerWidth}px`;
   particleCanvas.style.height = `${window.innerHeight}px`;
-  pctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  pctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 
-  particles = Array.from({ length: 38 }, () => ({
+  particles = Array.from({ length: PARTICLE_COUNT }, () => ({
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
-    s: Math.random() * 1.8 + 0.6,
-    v: Math.random() * 0.35 + 0.08,
+    size: Math.random() * 1.8 + 0.6,
+    velocity: Math.random() * 0.35 + 0.08,
   }));
 }
 
@@ -376,14 +395,14 @@ function animateParticles() {
   if (document.body.classList.contains('graphics-advanced')) {
     pctx.fillStyle = 'rgba(244, 205, 143, 0.42)';
     particles.forEach((p) => {
-      p.y -= p.v;
+      p.y -= p.velocity;
       p.x += Math.sin(p.y / 50) * 0.12;
       if (p.y < -5) {
         p.y = window.innerHeight + 5;
         p.x = Math.random() * window.innerWidth;
       }
       pctx.beginPath();
-      pctx.arc(p.x, p.y, p.s, 0, Math.PI * 2);
+      pctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       pctx.fill();
     });
   }

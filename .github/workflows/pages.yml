@@ -2,7 +2,7 @@ name: Deploy static site to GitHub Pages
 
 on:
   push:
-    branches: ["main", "copilot/add-5-minute-dungeon-app"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:

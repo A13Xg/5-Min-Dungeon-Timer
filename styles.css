@@ -9,6 +9,7 @@
   --warning: #f2b940;
   --teal: #3cc7c4;
   --shadow: 0 10px 0 #0a0a0d;
+  --back-button-negative-shift: -8px;
 }
 
 body.theme-light {
@@ -236,6 +237,7 @@ body.theme-light {
 }
 
 .btn:active { transform: translateY(2px); }
+.btn-small:active { transform: translateX(var(--back-button-negative-shift)) translateY(2px); }
 
 .btn-main {
   min-height: 88px;
@@ -252,7 +254,7 @@ body.theme-light {
 .btn-small {
   min-height: 42px;
   font-size: 0.8rem;
-  margin-left: -8px;
+  transform: translateX(var(--back-button-negative-shift));
 }
 
 .badges {
