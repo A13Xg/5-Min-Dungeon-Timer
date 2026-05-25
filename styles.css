@@ -14,7 +14,7 @@
   --stone-soft: #2d3440;
   --ember: #ff8e2b;
   --glow: #f4ba6a;
-  --shadow: 0 10px 0 #090b0d;
+  --shadow: 0 10px 0 rgba(9,11,13,0.4);
   /* Game class gem colors */
   --ruby: #e03535;
   --sapphire: #3570d8;
@@ -34,7 +34,7 @@ body.theme-light {
   --accent: #8f5e1f;
   --ember: #c75b1e;
   --glow: #b77b2f;
-  --shadow: 0 8px 0 #b3a896;
+  --shadow: 0 8px 0 rgba(179,168,150,0.4);
 }
 
 body.theme-dark {
@@ -97,6 +97,28 @@ body::before {
 .fx-layer * {
   pointer-events: none !important;
 }
+
+/* Stage background texture — rendered before smoke so smoke sits on top. */
+body.stage-1 .fx-layer::before,
+body.stage-2 .fx-layer::before,
+body.stage-3 .fx-layer::before,
+body.stage-4 .fx-layer::before,
+body.stage-5 .fx-layer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: repeat;
+  background-size: calc(100% / 2) auto;
+  opacity: 0.32;
+  transition: opacity 600ms ease;
+}
+
+body.stage-1 .fx-layer::before { background-image: url('assets/images/stage1_background.png'); }
+body.stage-2 .fx-layer::before { background-image: url('assets/images/stage2_background.png'); }
+body.stage-3 .fx-layer::before { background-image: url('assets/images/stage3_background.png'); }
+body.stage-4 .fx-layer::before { background-image: url('assets/images/stage4_background.png'); }
+body.stage-5 .fx-layer::before { background-image: url('assets/images/stage5_background.png'); }
 
 .smoke {
   position: absolute;
