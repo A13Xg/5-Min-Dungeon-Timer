@@ -25,6 +25,11 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Validate FX library availability
+        run: |
+          set -euo pipefail
+          curl -fsSLI "https://cdn.jsdelivr.net/npm/@tsparticles/engine@3/+esm" >/dev/null || curl -fsSLI "https://unpkg.com/@tsparticles/engine@3/+esm" >/dev/null
+          curl -fsSLI "https://cdn.jsdelivr.net/npm/@tsparticles/preset-fire@3/+esm" >/dev/null || curl -fsSLI "https://unpkg.com/@tsparticles/preset-fire@3/+esm" >/dev/null
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

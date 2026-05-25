@@ -23,7 +23,7 @@ https://a13xg.github.io/5-Min-Dungeon-Timer/
 - Audio system:
   - Minute threshold beeps (4/3/2/1 beeps)
   - Escalating urgency beeps below 30s down to sub-second intervals
-  - Very low-volume procedural dungeon ambience (royalty-free)
+  - Ambient music loaded from `assets/ambient/*.mp3` and picked randomly each track end
 - Keep-awake support using Wake Lock API (when available)
 - Top-right expandable settings menu:
   - Music toggle (default ON)
@@ -33,6 +33,7 @@ https://a13xg.github.io/5-Min-Dungeon-Timer/
   - Advanced/Simple graphics toggle (default Advanced)
   - GitHub repo link
 - Advanced graphics mode with subtle smoke + particles (simple mode disables effects)
+  - Uses tsParticles fire preset for smoke + ember visuals with built-in fallback renderer
 
 ## Quick board game context
 5-Minute Dungeon is a frantic, cooperative, real-time card game where players race against a 5-minute timer to clear dungeon cards and defeat a boss each stage. Difficulty increases across five stages, with larger dungeon door card counts.
@@ -56,3 +57,19 @@ python -m http.server
 ```
 
 Then open `http://localhost:8000`.
+
+## Ambient Music Files
+- Replace these placeholder files with real MP3s:
+  - `assets/ambient/track-1.mp3`
+  - `assets/ambient/track-2.mp3`
+  - `assets/ambient/track-3.mp3`
+  - `assets/ambient/track-4.mp3`
+- Keep the same names, or update `AMBIENT_TRACKS` in `script.js`.
+
+## Smoke + Ember Visual FX
+- Primary effect library: `@tsparticles/engine` + `@tsparticles/preset-fire` (loaded as ESM from npm CDNs).
+- Redundancy:
+  - Multi-CDN load fallback (`jsDelivr` then `unpkg`).
+  - Multi-attempt initialization with backoff.
+  - Existing in-app canvas ember renderer is used automatically if library loading fails.
+- GitHub Pages workflow now validates FX library URL availability before deploying.

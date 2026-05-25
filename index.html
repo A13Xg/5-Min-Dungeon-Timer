@@ -11,7 +11,8 @@
     <div class="fx-layer" aria-hidden="true">
       <div class="smoke smoke-a"></div>
       <div class="smoke smoke-b"></div>
-      <canvas id="particles"></canvas>
+      <div id="particles"></div>
+      <canvas id="fallbackParticles"></canvas>
     </div>
 
     <header class="app-header">
@@ -25,7 +26,7 @@
       <aside id="settingsPanel" class="settings-panel" aria-label="Settings">
         <label for="musicToggle"><input id="musicToggle" type="checkbox" checked /> Ambient music</label>
         <label for="beepToggle"><input id="beepToggle" type="checkbox" checked /> Beeps</label>
-        <label for="wakeToggle"><input id="wakeToggle" type="checkbox" /> Keep awake</label>
+        <label for="wakeToggle"><input id="wakeToggle" type="checkbox" checked /> Keep awake</label>
         <label for="modeToggle"><input id="modeToggle" type="checkbox" checked /> Dark mode</label>
         <label for="graphicsToggle"><input id="graphicsToggle" type="checkbox" checked /> Advanced graphics</label>
         <a href="https://github.com/A13Xg/5-Min-Dungeon-Timer" target="_blank" rel="noopener noreferrer">GitHub Repo</a>

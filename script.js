@@ -3,6 +3,23 @@ const ROUND_SECONDS = 300;
 const PARTICLE_COUNT = 38;
 const NOISE_AMPLITUDE = 0.18;
 const MINUTE_BEEP_THRESHOLDS = [240, 180, 120, 60];
+const WAKE_RETRY_MS = 15000;
+const FX_INIT_RETRIES = 2;
+const FX_RETRY_BACKOFF_MS = 900;
+const AMBIENT_TRACKS = [
+  './assets/ambient/track-1.mp3',
+  './assets/ambient/track-2.mp3',
+  './assets/ambient/track-3.mp3',
+  './assets/ambient/track-4.mp3',
+];
+const PARTICLE_ENGINE_URLS = [
+  'https://cdn.jsdelivr.net/npm/@tsparticles/engine@3/+esm',
+  'https://unpkg.com/@tsparticles/engine@3/+esm',
+];
+const PARTICLE_FIRE_PRESET_URLS = [
+  'https://cdn.jsdelivr.net/npm/@tsparticles/preset-fire@3/+esm',
+  'https://unpkg.com/@tsparticles/preset-fire@3/+esm',
+];
 
 const timerText = document.getElementById('timerText');
 const playPauseButton = document.getElementById('playPauseButton');
@@ -32,21 +49,30 @@ let flashState = false;
 let previousRemaining = ROUND_SECONDS;
 
 let audioCtx;
-let ambienceNodes = [];
+let masterGain;
+let beepBus;
+let compressor;
+let audioUnlockPrimed = false;
+let ambiencePlayer = null;
 let ambienceStarted = false;
+let lastTrackIndex = -1;
+let wakeRetryTimer = null;
+let fxContainer = null;
+let fallbackParticlesActive = false;
+let fallbackFrameId = null;
 
-const particleCanvas = document.getElementById('particles');
+const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas.getContext('2d');
 let particles = [];
 
-function init() {
+async function init() {
   createDots();
   render(ROUND_SECONDS, true);
   wireEvents();
-  setupParticles();
-  animateParticles();
+  initializeWakeLockDefaults();
   setTheme(true);
   setGraphics(true);
+  await initializeVisualEffects();
 }
 
 function createDots() {
@@ -77,6 +103,7 @@ function wireEvents() {
 
   beepToggle.addEventListener('change', () => {
     ensureAudio();
+    unlockAudioContext();
   });
 
   wakeToggle.addEventListener('change', async () => {
@@ -88,12 +115,32 @@ function wireEvents() {
   graphicsToggle.addEventListener('change', () => setGraphics(graphicsToggle.checked));
 
   document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && wakeToggle.checked) {
-      await requestWakeLock();
+    if (document.visibilityState === 'visible') {
+      await maybeRequestWakeLock();
     }
   });
 
-  window.addEventListener('resize', setupParticles);
+  window.addEventListener('focus', maybeRequestWakeLock);
+  window.addEventListener('pageshow', maybeRequestWakeLock);
+
+  const unlockOnce = () => {
+    unlockAudioContext();
+    document.removeEventListener('pointerdown', unlockOnce);
+    document.removeEventListener('keydown', unlockOnce);
+    document.removeEventListener('touchstart', unlockOnce);
+  };
+  document.addEventListener('pointerdown', unlockOnce, { passive: true });
+  document.addEventListener('keydown', unlockOnce);
+  document.addEventListener('touchstart', unlockOnce, { passive: true });
+
+  window.addEventListener('resize', () => {
+    if (fallbackParticlesActive) setupParticles();
+    if (fxContainer) {
+      fxContainer.refresh().catch(() => {
+        // Refresh failures are non-critical; rendering continues with current canvas.
+      });
+    }
+  });
 }
 
 function toggleTimer() {
@@ -106,8 +153,9 @@ function toggleTimer() {
 
 function startTimer() {
   ensureAudio();
+  unlockAudioContext();
   if (musicToggle.checked) startAmbience();
-  if (wakeToggle.checked) requestWakeLock();
+  maybeRequestWakeLock();
   running = true;
   startTimestamp = performance.now();
   previousRemaining = Math.max(0, ROUND_SECONDS - elapsedBeforePause);
@@ -243,23 +291,60 @@ function urgencyInterval(remaining) {
 function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    beepBus = audioCtx.createGain();
+    compressor = audioCtx.createDynamicsCompressor();
+
+    masterGain.gain.value = 0.95;
+    beepBus.gain.value = 1;
+
+    compressor.threshold.value = -20;
+    compressor.knee.value = 25;
+    compressor.ratio.value = 8;
+    compressor.attack.value = 0.002;
+    compressor.release.value = 0.08;
+
+    beepBus.connect(compressor);
+    compressor.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
   }
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {
+      // Resume can fail before first user gesture in some browsers.
+    });
   }
 }
 
-function beep(duration = 0.07, freq = 440, volume = 0.07) {
+function unlockAudioContext() {
   ensureAudio();
+  if (!audioCtx || audioUnlockPrimed) return;
+  const now = audioCtx.currentTime;
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.value = freq;
-  gain.gain.value = volume;
+  osc.type = 'sine';
+  osc.frequency.value = 220;
+  gain.gain.value = 0.0001;
   osc.connect(gain);
-  gain.connect(audioCtx.destination);
+  gain.connect(beepBus);
+  osc.start(now);
+  osc.stop(now + 0.01);
+  audioUnlockPrimed = true;
+}
+
+function beep(duration = 0.07, freq = 440, volume = 0.07) {
+  if (!beepToggle.checked) return;
+  ensureAudio();
+  unlockAudioContext();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+  gain.gain.value = 0.0001;
+  osc.connect(gain);
+  gain.connect(beepBus);
   const now = audioCtx.currentTime;
-  gain.gain.setValueAtTime(volume, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(volume, now + 0.006);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   osc.start(now);
   osc.stop(now + duration);
@@ -267,91 +352,103 @@ function beep(duration = 0.07, freq = 440, volume = 0.07) {
 
 function beepSequence(count, spacing = 0.09, freq = 360, volume = 0.07) {
   ensureAudio();
+  unlockAudioContext();
   for (let i = 0; i < count; i += 1) {
     const delay = i * spacing * 1000;
     setTimeout(() => beep(0.055, freq + i * 10, volume), delay);
   }
 }
 
-function generateNoiseBuffer() {
-  const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
-  const data = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < data.length; i += 1) {
-    const noiseValue = (Math.random() * 2 - 1) * NOISE_AMPLITUDE;
-    data[i] = noiseValue;
+function buildAmbientPlayer() {
+  if (ambiencePlayer) return ambiencePlayer;
+  ambiencePlayer = new Audio();
+  ambiencePlayer.preload = 'auto';
+  ambiencePlayer.loop = false;
+  ambiencePlayer.volume = 0.24;
+
+  ambiencePlayer.addEventListener('ended', () => {
+    playRandomAmbientTrack();
+  });
+
+  ambiencePlayer.addEventListener('error', () => {
+    playRandomAmbientTrack(true);
+  });
+
+  return ambiencePlayer;
+}
+
+function getRandomAmbientTrack() {
+  if (!AMBIENT_TRACKS.length) return null;
+  if (AMBIENT_TRACKS.length === 1) {
+    lastTrackIndex = 0;
+    return AMBIENT_TRACKS[0];
   }
-  return noiseBuffer;
+
+  let nextIndex = lastTrackIndex;
+  while (nextIndex === lastTrackIndex) {
+    nextIndex = Math.floor(Math.random() * AMBIENT_TRACKS.length);
+  }
+  lastTrackIndex = nextIndex;
+  return AMBIENT_TRACKS[nextIndex];
+}
+
+function playRandomAmbientTrack(skipIfPaused = false) {
+  if (!musicToggle.checked && skipIfPaused) return;
+  const player = buildAmbientPlayer();
+  const track = getRandomAmbientTrack();
+  if (!track) return;
+  player.src = track;
+  player.play().catch(() => {
+    // Autoplay can be blocked before first user interaction.
+  });
 }
 
 function startAmbience() {
-  ensureAudio();
   if (ambienceStarted) return;
-
-  const now = audioCtx.currentTime;
-  const master = audioCtx.createGain();
-  master.gain.value = 0.02;
-
-  const low = audioCtx.createOscillator();
-  low.type = 'sawtooth';
-  low.frequency.value = 58;
-
-  const high = audioCtx.createOscillator();
-  high.type = 'triangle';
-  high.frequency.value = 116;
-
-  const noise = audioCtx.createBufferSource();
-  noise.buffer = generateNoiseBuffer();
-  noise.loop = true;
-
-  const noiseFilter = audioCtx.createBiquadFilter();
-  noiseFilter.type = 'lowpass';
-  noiseFilter.frequency.value = 420;
-
-  const lfo = audioCtx.createOscillator();
-  lfo.frequency.value = 0.1;
-  const lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = 12;
-  lfo.connect(lfoGain);
-  lfoGain.connect(low.frequency);
-
-  low.connect(master);
-  high.connect(master);
-  noise.connect(noiseFilter);
-  noiseFilter.connect(master);
-  master.connect(audioCtx.destination);
-
-  low.start(now);
-  high.start(now);
-  noise.start(now);
-  lfo.start(now);
-
-  ambienceNodes = [master, low, high, noise, lfo, lfoGain, noiseFilter];
+  playRandomAmbientTrack();
   ambienceStarted = true;
 }
 
 function stopAmbience() {
   if (!ambienceStarted) return;
-  const [master, low, high, noise, lfo] = ambienceNodes;
-  const stopAt = audioCtx.currentTime + 0.15;
-  master.gain.exponentialRampToValueAtTime(0.0001, stopAt);
-  low.stop(stopAt + 0.02);
-  high.stop(stopAt + 0.02);
-  noise.stop(stopAt + 0.02);
-  lfo.stop(stopAt + 0.02);
-  ambienceNodes = [];
+  if (ambiencePlayer) {
+    ambiencePlayer.pause();
+    ambiencePlayer.currentTime = 0;
+  }
   ambienceStarted = false;
+}
+
+function initializeWakeLockDefaults() {
+  wakeToggle.checked = true;
+  maybeRequestWakeLock();
+
+  if (wakeRetryTimer) clearInterval(wakeRetryTimer);
+  wakeRetryTimer = setInterval(() => {
+    maybeRequestWakeLock();
+  }, WAKE_RETRY_MS);
+}
+
+async function maybeRequestWakeLock() {
+  if (!wakeToggle.checked || document.visibilityState !== 'visible') return;
+  await requestWakeLock();
 }
 
 async function requestWakeLock() {
   try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => {
-        wakeLock = null;
-      });
+    if (!('wakeLock' in navigator)) {
+      wakeToggle.checked = false;
+      wakeToggle.disabled = true;
+      return;
     }
+    if (wakeLock || !wakeToggle.checked) return;
+
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      wakeLock = null;
+      maybeRequestWakeLock();
+    });
   } catch {
-    wakeToggle.checked = false;
+    // Permission can temporarily fail; keep trying while enabled.
   }
 }
 
@@ -372,6 +469,112 @@ function setGraphics(advanced) {
   document.body.classList.toggle('graphics-advanced', advanced);
   document.body.classList.toggle('graphics-simple', !advanced);
   graphicsToggle.checked = advanced;
+
+  if (fxContainer) {
+    if (advanced) fxContainer.play();
+    else fxContainer.pause();
+  }
+
+  if (fallbackParticlesActive) {
+    if (advanced && !fallbackFrameId) {
+      animateParticles();
+    }
+    if (!advanced && fallbackFrameId) {
+      cancelAnimationFrame(fallbackFrameId);
+      fallbackFrameId = null;
+      pctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+  }
+}
+
+async function initializeVisualEffects() {
+  const loaded = await initSmokeAndEmberFx();
+  if (!loaded) {
+    fallbackParticlesActive = true;
+    setupParticles();
+    animateParticles();
+  }
+}
+
+async function importModuleWithRedundancy(urls, label) {
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      return await import(url);
+    } catch (error) {
+      lastError = error;
+      console.warn(`[fx] Failed loading ${label} from ${url}`, error);
+    }
+  }
+  throw lastError || new Error(`Unable to load ${label}`);
+}
+
+async function initSmokeAndEmberFx() {
+  for (let attempt = 0; attempt <= FX_INIT_RETRIES; attempt += 1) {
+    try {
+      const [engineModule, presetModule] = await Promise.all([
+        importModuleWithRedundancy(PARTICLE_ENGINE_URLS, 'tsParticles engine'),
+        importModuleWithRedundancy(PARTICLE_FIRE_PRESET_URLS, 'tsParticles fire preset'),
+      ]);
+
+      const particleEngine = engineModule.tsParticles;
+      const loadFirePreset = presetModule.loadFirePreset;
+      if (!particleEngine || !loadFirePreset) {
+        throw new Error('tsParticles exports unavailable');
+      }
+
+      await loadFirePreset(particleEngine);
+      fxContainer = await particleEngine.load({
+        id: 'particles',
+        options: {
+          preset: 'fire',
+          fullScreen: { enable: true, zIndex: 0 },
+          detectRetina: true,
+          background: { opacity: 0 },
+          fpsLimit: 60,
+          particles: {
+            color: {
+              value: ['#ffb45d', '#ff8248', '#ffd9a0', '#9fa7b5'],
+            },
+            opacity: {
+              value: { min: 0.1, max: 0.55 },
+            },
+            size: {
+              value: { min: 1, max: 3.4 },
+            },
+          },
+          emitters: [
+            {
+              position: { x: 15, y: 100 },
+              rate: { quantity: 5, delay: 0.06 },
+              size: { width: 24, height: 0 },
+            },
+            {
+              position: { x: 85, y: 100 },
+              rate: { quantity: 5, delay: 0.06 },
+              size: { width: 24, height: 0 },
+            },
+          ],
+        },
+      });
+
+      if (!document.body.classList.contains('graphics-advanced')) {
+        fxContainer.pause();
+      }
+
+      return true;
+    } catch (error) {
+      console.warn(`[fx] Smoke/ember effect init attempt ${attempt + 1} failed`, error);
+      if (attempt < FX_INIT_RETRIES) {
+        const waitMs = FX_RETRY_BACKOFF_MS * (attempt + 1);
+        await new Promise((resolve) => {
+          setTimeout(resolve, waitMs);
+        });
+      }
+    }
+  }
+
+  return false;
 }
 
 function setupParticles() {
@@ -406,7 +609,12 @@ function animateParticles() {
       pctx.fill();
     });
   }
-  requestAnimationFrame(animateParticles);
+  fallbackFrameId = requestAnimationFrame(animateParticles);
 }
 
-init();
+init().catch((error) => {
+  console.error('[init] Failed to initialize app with advanced FX, enabling fallback particles', error);
+  fallbackParticlesActive = true;
+  setupParticles();
+  animateParticles();
+});
