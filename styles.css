@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Spectral:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Playfair+Display:wght@600;700;900&family=Spectral:wght@400;600;700&display=swap');
 
 :root {
   --bg: #101216;
@@ -15,7 +15,6 @@
   --ember: #ff8e2b;
   --glow: #f4ba6a;
   --shadow: 0 10px 0 #090b0d;
-  --btn-small-offset: -8px;
   /* Game class gem colors */
   --ruby: #e03535;
   --sapphire: #3570d8;
@@ -39,16 +38,17 @@ body.theme-light {
 }
 
 body.theme-dark {
-  --bg: #0e1014;
-  --panel: #171b22;
-  --ink: #eadfc9;
-  --muted: #a39677;
-  --line: #3a414f;
-  --stone: #1f242d;
-  --stone-soft: #2a313d;
-  --accent: #cc9450;
-  --ember: #ff7d25;
-  --glow: #ffbf70;
+  --bg: #0d0a08;
+  --panel: #1c1410;
+  --ink: #f4e8d0;
+  --muted: #9a7850;
+  --line: rgba(200,160,104,0.2);
+  --stone: #160e08;
+  --stone-soft: #201408;
+  --accent: #c8a068;
+  --ember: #d4883a;
+  --glow: #e4c090;
+  background: linear-gradient(160deg, #0d0a08, #1c1410);
 }
 
 * { box-sizing: border-box; }
@@ -122,6 +122,9 @@ body::before {
   bottom: 10vh;
   animation-duration: 20s;
 }
+
+body.theme-dark .smoke-a { background: #3d1a08; }
+body.theme-dark .smoke-b { background: #5a3a20; }
 
 #particles,
 #fallbackParticles {
@@ -475,7 +478,6 @@ body::before {
 }
 
 .btn:active { transform: translateY(2px); }
-.btn-small:active { transform: translateX(var(--btn-small-offset)) translateY(2px); }
 
 .btn:hover { filter: brightness(1.1); transition: filter 120ms ease, border-color 180ms ease, box-shadow 180ms ease; }
 #resetButton:hover   { border-color: var(--ruby);     box-shadow: 0 0 14px color-mix(in oklab, var(--ruby)     45%, transparent), var(--shadow); }
@@ -568,7 +570,26 @@ body::before {
 body.theme-dark .badge,
 body.theme-dark .btn,
 body.theme-dark .settings-panel {
-  border-color: color-mix(in oklab, var(--glow) 28%, var(--ink) 72%);
+  border-color: rgba(200,160,104,0.45);
+}
+
+body.theme-dark .btn {
+  background: linear-gradient(145deg, #6a4030, #4a2a1a);
+  color: #f4e8d0;
+}
+
+body.theme-dark .btn-main {
+  background: linear-gradient(180deg, #e2b56f 0%, #c8a068 100%);
+  color: #16110a;
+}
+
+body.theme-dark .badge {
+  background: rgba(200,160,104,0.06);
+  border-radius: 8px;
+}
+
+body.theme-dark .app-header h1 {
+  font-family: 'Playfair Display', serif;
 }
 
 body.theme-light .badge,
