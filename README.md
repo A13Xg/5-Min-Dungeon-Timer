@@ -58,6 +58,23 @@ python -m http.server
 
 Then open `http://localhost:8000`.
 
+## Linting
+
+Lint hooks (HTML, CSS, JS syntax) are configured in `.pre-commit-config.yaml` and run in CI via `.github/workflows/lint.yml`. To run them locally without installing anything globally, use [`prek`](https://github.com/j178/prek) (a Rust-based reimplementation of `pre-commit`) via [`uv`](https://docs.astral.sh/uv/):
+
+```bash
+uvx prek run --all-files       # run every hook against every file
+uvx prek run                   # run only against files changed vs. HEAD
+```
+
+To have the hooks run automatically on `git commit`:
+
+```bash
+uvx prek install
+```
+
+What's checked: HTML validity (`html5validator`), CSS (`stylelint`), JS syntax (`node --check`), plus YAML/JSON syntax and basic whitespace hygiene.
+
 ## Ambient Music Files
 - Replace these placeholder files with real MP3s:
   - `assets/ambient/track-1.mp3`

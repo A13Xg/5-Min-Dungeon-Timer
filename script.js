@@ -376,15 +376,28 @@ function resetStage(playFeedback = false) {
   if (playFeedback && beepToggle.checked) beepSequence(1, 0.065, 560, 0.08);
 }
 
+let bossLoadGen = 0;
+
 function applyStageClass() {
   for (let i = 1; i <= TOTAL_STAGES; i++) document.body.classList.remove(`stage-${i}`);
   document.body.classList.add(`stage-${stage}`);
-  if (bossCharacter) {
-    bossCharacter.src = BOSS_IMAGES[stage] ?? '';
-    bossCharacter.classList.remove('boss-animating');
+  if (!bossCharacter) return;
+
+  const src = BOSS_IMAGES[stage] ?? '';
+  bossCharacter.classList.remove('boss-animating');
+  const gen = ++bossLoadGen;
+
+  if (!src) {
+    bossCharacter.removeAttribute('src');
+    return;
+  }
+
+  bossCharacter.src = src;
+  bossCharacter.decode().catch(() => {}).then(() => {
+    if (gen !== bossLoadGen) return;
     void bossCharacter.offsetWidth;
     bossCharacter.classList.add('boss-animating');
-  }
+  });
 }
 
 function jumpStage(direction) {
