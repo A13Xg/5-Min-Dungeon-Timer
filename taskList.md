@@ -1,12 +1,12 @@
 # Master List
+### Move tasks to individual sections to assing task to individual.
+___
 
-- [ ] Boss Image Integraytion
-- [ ] Simple View Tasking
 
 ## Alex
 
-- [ ] Simple View Tasking
+- [ ] Simple View
 
 ## Matt
 
-- [ ] Boss Image Integraytion
+- [ ] Boss Image Integration
