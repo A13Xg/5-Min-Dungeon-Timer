@@ -32,7 +32,7 @@ const BOSS_IMAGES = [
   'assets/images/characters/B1_BabyBarbarian1.png',
   'assets/images/characters/B2_GrimeReaper1.png',
   'assets/images/characters/B3_ZolaTheGorgon1.png',
-  'assets/images/characters/B4_FreakinDragon1.png',
+  'assets/images/characters/B4_FreakingDragon1.png',
   'assets/images/characters/B5_DungeonMaster.png',
 ];
 
