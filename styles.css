@@ -535,6 +535,10 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   gap: 0.45rem;
 }
 
+button {
+  touch-action: manipulation;
+}
+
 .btn {
   border: 3px solid color-mix(in oklab, var(--ink) 78%, #000 22%);
   background: linear-gradient(180deg, color-mix(in oklab, var(--panel) 84%, #000 16%) 0%, color-mix(in oklab, var(--stone) 76%, #000 24%) 100%);
