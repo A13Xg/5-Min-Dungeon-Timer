@@ -23,20 +23,6 @@
   --amethyst: #8840d8;
 }
 
-body.theme-light {
-  --bg: #e6dfd0;
-  --panel: #f3ebda;
-  --ink: #1f1a15;
-  --muted: #625746;
-  --line: #9d907b;
-  --stone: #c8beab;
-  --stone-soft: #d6ccbb;
-  --accent: #8f5e1f;
-  --ember: #c75b1e;
-  --glow: #b77b2f;
-  --shadow: 0 8px 0 rgba(179,168,150,0.4);
-}
-
 body.theme-dark {
   --bg: #0d0a08;
   --panel: #1c1410;
@@ -53,6 +39,10 @@ body.theme-dark {
 
 * { box-sizing: border-box; }
 
+button {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   font-family: "Spectral", "Georgia", serif;
@@ -68,6 +58,17 @@ body {
 }
 
 body.theme-light {
+  --bg: #e6dfd0;
+  --panel: #f3ebda;
+  --ink: #1f1a15;
+  --muted: #625746;
+  --line: #9d907b;
+  --stone: #c8beab;
+  --stone-soft: #d6ccbb;
+  --accent: #8f5e1f;
+  --ember: #c75b1e;
+  --glow: #b77b2f;
+  --shadow: 0 8px 0 rgba(179,168,150,0.4);
   background:
     radial-gradient(circle at 18% -12%, rgba(226, 189, 122, 0.28), transparent 40%),
     radial-gradient(circle at 86% 112%, rgba(195, 137, 84, 0.2), transparent 38%),
@@ -174,14 +175,6 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   max-width: 860px;
   margin: 0 auto;
   padding: 1rem;
-}
-
-.app-header {
-  z-index: 100;
-}
-
-.app-main {
-  z-index: 10;
 }
 
 .app-header {
@@ -448,15 +441,15 @@ body.theme-dark .smoke-b { background: #5a3a20; }
   transition: box-shadow 450ms ease;
 }
 
+.progress-wrap:has(.dot.active) {
+  box-shadow: 0 0 22px color-mix(in oklab, var(--stage-color) 32%, transparent);
+}
+
 .progress-wrap:has(.dot[data-stage="1"].active) { --stage-color: var(--ruby); }
 .progress-wrap:has(.dot[data-stage="2"].active) { --stage-color: var(--sapphire); }
 .progress-wrap:has(.dot[data-stage="3"].active) { --stage-color: var(--emerald); }
 .progress-wrap:has(.dot[data-stage="4"].active) { --stage-color: var(--gold); }
 .progress-wrap:has(.dot[data-stage="5"].active) { --stage-color: var(--amethyst); }
-
-.progress-wrap:has(.dot.active) {
-  box-shadow: 0 0 22px color-mix(in oklab, var(--stage-color) 32%, transparent);
-}
 
 .progress-track {
   height: 8px;
@@ -533,10 +526,6 @@ body.theme-dark .smoke-b { background: #5a3a20; }
 .left-controls {
   display: grid;
   gap: 0.45rem;
-}
-
-button {
-  touch-action: manipulation;
 }
 
 .btn {

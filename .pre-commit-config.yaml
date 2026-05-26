@@ -1,0 +1,37 @@
+# Run locally with: pipx run prek run --all-files
+# (or `pre-commit run --all-files` — same config format)
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/thibaudcolas/pre-commit-stylelint
+    rev: v16.10.0
+    hooks:
+      - id: stylelint
+        files: \.css$
+        additional_dependencies:
+          - stylelint@16.10.0
+          - stylelint-config-recommended@14.0.1
+
+  - repo: local
+    hooks:
+      - id: html5validator
+        name: html5validator
+        entry: html5validator
+        language: python
+        additional_dependencies: [html5validator==0.4.2]
+        files: \.html$
+        args: ["--root", "."]
+        pass_filenames: false
+
+      - id: node-syntax-check
+        name: node --check (JS syntax)
+        entry: bash -c 'for f in "$@"; do node --check "$f" || exit 1; done' --
+        language: system
+        files: \.js$
