@@ -848,13 +848,16 @@ function speakTimeLeft(thresholdSeconds, delaySeconds = 0) {
   if (!message) return;
 
   const voiceTimer = setTimeout(() => {
+    pendingBeepTimers = pendingBeepTimers.filter((id) => id !== voiceTimer);
+    if (!('speechSynthesis' in window)) return;
+    if (!voiceoverToggle || !voiceoverToggle.checked) return;
+
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.rate = 1.02;
     utterance.pitch = 0.98;
     utterance.volume = 0.85;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
-    pendingBeepTimers = pendingBeepTimers.filter((id) => id !== voiceTimer);
     appendDebugEvent('voice', message);
   }, Math.max(0, delaySeconds) * 1000);
 
