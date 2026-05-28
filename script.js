@@ -3,19 +3,23 @@ const ROUND_SECONDS = 300;
 const PARTICLE_COUNT = 38;
 const NOISE_AMPLITUDE = 0.18;
 const MINUTE_BEEP_THRESHOLDS = [240, 180, 120, 60];
+const VOICE_ANNOUNCEMENT_THRESHOLDS = [240, 180, 120, 60, 30];
 const WAKE_RETRY_MS = 15000;
 const FX_INIT_RETRIES = 2;
 const FX_RETRY_BACKOFF_MS = 900;
 const AMBIENT_ERROR_LIMIT = 6;
 const AMBIENT_RETRY_DELAY_MS = 700;
 const AMBIENT_DIRECTORY = './assets/ambient/';
+const AMBIENT_FALLBACK_TRACKS = ['./assets/ambient/track-1.mp3', './assets/ambient/track-2.mp3'];
 const DEFAULT_MUSIC_ENABLED = true;
 const DEFAULT_BEEP_ENABLED = true;
+const DEFAULT_VOICEOVER_ENABLED = true;
 const DEFAULT_WAKE_ENABLED = true;
 const DEFAULT_DARK_MODE_ENABLED = true;
 const DEFAULT_ADVANCED_GRAPHICS_ENABLED = true;
 const MUSIC_TOGGLE_STORAGE_KEY = 'dungeonTimer.musicEnabled';
 const BEEP_TOGGLE_STORAGE_KEY = 'dungeonTimer.beepEnabled';
+const VOICEOVER_TOGGLE_STORAGE_KEY = 'dungeonTimer.voiceoverEnabled';
 const WAKE_TOGGLE_STORAGE_KEY = 'dungeonTimer.wakeEnabled';
 const MODE_TOGGLE_STORAGE_KEY = 'dungeonTimer.darkModeEnabled';
 const GRAPHICS_TOGGLE_STORAGE_KEY = 'dungeonTimer.advancedGraphicsEnabled';
@@ -34,6 +38,22 @@ const BOSS_IMAGES = [
   'assets/images/characters/B3_ZolaTheGorgon1.png',
   'assets/images/characters/B4_FreakingDragon1.png',
   'assets/images/characters/B5_DungeonMaster.png',
+];
+const PRELOAD_IMAGE_ASSETS = [
+  './assets/images/pixelDragon.png',
+  './assets/images/favicon.svg',
+  './assets/images/stage1_background.png',
+  './assets/images/stage2_background.png',
+  './assets/images/stage3_background.png',
+  './assets/images/stage4_background.png',
+  './assets/images/stage5_background.png',
+  './assets/images/characters/B1_BabyBarbarian1.png',
+  './assets/images/characters/B1_BabyBarbarian2.png',
+  './assets/images/characters/B2_GrimeReaper1.png',
+  './assets/images/characters/B3_ZolaTheGorgon1.png',
+  './assets/images/characters/B4_FreakingDragon1.png',
+  './assets/images/characters/B5_DungeonMaster.png',
+  './assets/images/characters/B5_DungeonMaster2.png',
 ];
 
 const PARTICLE_ENGINE_URLS = [
@@ -61,6 +81,7 @@ const resetSettingsButton = document.getElementById('resetSettingsButton');
 const debugPanel = document.getElementById('debugPanel');
 const musicToggle = document.getElementById('musicToggle');
 const beepToggle = document.getElementById('beepToggle');
+const voiceoverToggle = document.getElementById('voiceoverToggle');
 const ambientVolumeSlider = document.getElementById('ambientVolumeSlider');
 const ambientVolumeValue = document.getElementById('ambientVolumeValue');
 const beepVolumeSlider = document.getElementById('beepVolumeSlider');
@@ -96,6 +117,7 @@ let elapsedBeforePause = 0;
 let frameId = null;
 let wakeLock = null;
 let minuteThresholdsTriggered = new Set();
+let voiceThresholdsTriggered = new Set();
 let lastUrgencyBeep = null;
 let flashState = false;
 let previousRemaining = ROUND_SECONDS;
@@ -109,6 +131,7 @@ let ambiencePlayer = null;
 let ambienceStarted = false;
 let ambiencePausedByTimer = false;
 let ambientTrackIndex = -1;
+let currentAmbientTrack = null;
 let wakeRetryTimer = null;
 let fxContainer = null;
 let fallbackParticlesActive = false;
@@ -123,10 +146,53 @@ let ambientStartRetryTimer = null;
 let pendingBeepTimers = [];
 let beepVolumeLevel = DEFAULT_BEEP_LEVEL;
 let ambientVolumeLevel = DEFAULT_AMBIENT_LEVEL;
+let imagePreloadStarted = false;
 
 const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
+
+function preloadImageAsset(src, timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.decoding = 'async';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      appendDebugEvent('preload', `timeout ${src}`);
+      resolve(false);
+    }, timeoutMs);
+    image.onload = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      appendDebugEvent('preload', `loaded ${src}`);
+      resolve(true);
+    };
+    image.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      appendDebugEvent('preload', `failed ${src}`);
+      resolve(false);
+    };
+    image.src = src;
+  });
+}
+
+async function preloadAllImages() {
+  const preloadTargets = [...new Set([...PRELOAD_IMAGE_ASSETS, ...BOSS_IMAGES.filter(Boolean).map((path) => `./${path}`)])];
+  const results = await Promise.all(preloadTargets.map((src) => preloadImageAsset(src)));
+  const loadedCount = results.filter(Boolean).length;
+  appendDebugEvent('preload', `${loadedCount}/${preloadTargets.length} image assets ready`);
+}
+
+function startDeferredImagePreload() {
+  if (imagePreloadStarted) return;
+  imagePreloadStarted = true;
+  void preloadAllImages();
+}
 
 async function init() {
   await loadAmbientTracks();
@@ -134,6 +200,7 @@ async function init() {
   initializeToggleControls();
   createDots();
   syncMinuteThresholdTracking(ROUND_SECONDS);
+  syncVoiceThresholdTracking(ROUND_SECONDS);
   render(ROUND_SECONDS, true);
   applyStageClass();
   wireEvents();
@@ -255,6 +322,15 @@ function wireEvents() {
     });
   }
 
+  if (voiceoverToggle) {
+    voiceoverToggle.addEventListener('change', () => {
+      writeStoredToggle(VOICEOVER_TOGGLE_STORAGE_KEY, voiceoverToggle.checked);
+      if (!voiceoverToggle.checked && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    });
+  }
+
   if (ambientVolumeSlider) {
     ambientVolumeSlider.addEventListener('input', () => {
       updateAmbientVolumeFromUi();
@@ -300,6 +376,7 @@ function wireEvents() {
 
   const unlockOnce = () => {
     unlockAudioContext();
+    startDeferredImagePreload();
     document.removeEventListener('pointerdown', unlockOnce);
     document.removeEventListener('keydown', unlockOnce);
     document.removeEventListener('touchstart', unlockOnce);
@@ -362,6 +439,7 @@ function resetStage(playFeedback = false) {
   elapsedBeforePause = 0;
   startTimestamp = null;
   syncMinuteThresholdTracking(ROUND_SECONDS);
+  syncVoiceThresholdTracking(ROUND_SECONDS);
   lastUrgencyBeep = null;
   flashState = false;
   previousRemaining = ROUND_SECONDS;
@@ -416,6 +494,7 @@ function tick() {
   const remaining = Math.max(0, ROUND_SECONDS - elapsed);
   render(remaining);
   handleBeeps(remaining);
+  handleVoiceAnnouncements(remaining);
   previousRemaining = remaining;
 
   if (remaining <= 0) {
@@ -478,7 +557,6 @@ function handleBeeps(remaining) {
     if (!minuteThresholdsTriggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
       minuteThresholdsTriggered.add(threshold);
       beepSequence(threshold / 60, 0.12, 370, 0.1, false, `minute-${threshold}`);
-      speakMinuteLeft(threshold / 60, threshold / 60 * 0.12 + 0.12);
     }
   });
 
@@ -489,6 +567,20 @@ function handleBeeps(remaining) {
     const freq = remaining < 5 ? 780 : remaining < 15 ? 640 : 520;
     beep(0.055, freq, 0.085, false, 'urgency');
   }
+}
+
+function handleVoiceAnnouncements(remaining) {
+  if (!voiceoverToggle || !voiceoverToggle.checked) return;
+  const wholeSeconds = Math.floor(remaining);
+  const previousWholeSeconds = Math.floor(previousRemaining);
+
+  VOICE_ANNOUNCEMENT_THRESHOLDS.forEach((threshold) => {
+    if (!voiceThresholdsTriggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
+      voiceThresholdsTriggered.add(threshold);
+      const delaySeconds = threshold >= 60 ? (Math.floor(threshold / 60) + 1) * DEFAULT_BEEP_SPACING : 0;
+      speakTimeLeft(threshold, delaySeconds);
+    }
+  });
 }
 
 function urgencyInterval(remaining) {
@@ -613,6 +705,9 @@ function initializeToggleControls() {
   if (beepToggle) {
     beepToggle.checked = readStoredToggle(BEEP_TOGGLE_STORAGE_KEY, DEFAULT_BEEP_ENABLED);
   }
+  if (voiceoverToggle) {
+    voiceoverToggle.checked = readStoredToggle(VOICEOVER_TOGGLE_STORAGE_KEY, DEFAULT_VOICEOVER_ENABLED);
+  }
   if (wakeToggle) {
     wakeToggle.checked = readStoredToggle(WAKE_TOGGLE_STORAGE_KEY, DEFAULT_WAKE_ENABLED);
   }
@@ -630,6 +725,7 @@ function clearStoredSettings() {
   const keys = [
     MUSIC_TOGGLE_STORAGE_KEY,
     BEEP_TOGGLE_STORAGE_KEY,
+    VOICEOVER_TOGGLE_STORAGE_KEY,
     WAKE_TOGGLE_STORAGE_KEY,
     MODE_TOGGLE_STORAGE_KEY,
     GRAPHICS_TOGGLE_STORAGE_KEY,
@@ -654,6 +750,10 @@ function resetAllSettingsToDefaults() {
   if (beepToggle) {
     beepToggle.checked = DEFAULT_BEEP_ENABLED;
     writeStoredToggle(BEEP_TOGGLE_STORAGE_KEY, beepToggle.checked);
+  }
+  if (voiceoverToggle) {
+    voiceoverToggle.checked = DEFAULT_VOICEOVER_ENABLED;
+    writeStoredToggle(VOICEOVER_TOGGLE_STORAGE_KEY, voiceoverToggle.checked);
   }
   if (wakeToggle) {
     wakeToggle.checked = DEFAULT_WAKE_ENABLED;
@@ -754,19 +854,31 @@ function applyAmbientVolume() {
   }
 }
 
-function speakMinuteLeft(minutes, delaySeconds = 0) {
+function speakTimeLeft(thresholdSeconds, delaySeconds = 0) {
   if (!('speechSynthesis' in window)) return;
-  if (!beepToggle || !beepToggle.checked) return;
+  if (!voiceoverToggle || !voiceoverToggle.checked) return;
+
+  const message = {
+    240: '4 minutes left',
+    180: '3 minutes left',
+    120: '2 minutes left',
+    60: '1 minute left',
+    30: '30 seconds left',
+  }[thresholdSeconds];
+  if (!message) return;
 
   const voiceTimer = setTimeout(() => {
-    const utterance = new SpeechSynthesisUtterance(`${minutes}min left`);
+    pendingBeepTimers = pendingBeepTimers.filter((id) => id !== voiceTimer);
+    if (!('speechSynthesis' in window)) return;
+    if (!voiceoverToggle || !voiceoverToggle.checked) return;
+
+    const utterance = new SpeechSynthesisUtterance(message);
     utterance.rate = 1.02;
     utterance.pitch = 0.98;
     utterance.volume = 0.85;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
-    pendingBeepTimers = pendingBeepTimers.filter((id) => id !== voiceTimer);
-    appendDebugEvent('voice', `${minutes}min left`);
+    appendDebugEvent('voice', message);
   }, Math.max(0, delaySeconds) * 1000);
 
   pendingBeepTimers.push(voiceTimer);
@@ -780,13 +892,13 @@ async function loadAmbientTracks() {
     .then((tracks) => {
       ambientTracks = tracks;
       ambientDiscoveryAttempted = true;
-      appendDebugEvent('ambient', `discovered ${ambientTracks.length} mp3 track(s)`);
+      appendDebugEvent('ambient', `discovered ${ambientTracks.length} track(s)`);
       return ambientTracks;
     })
     .catch(() => {
-      ambientTracks = [];
+      ambientTracks = [...AMBIENT_FALLBACK_TRACKS];
       ambientDiscoveryAttempted = true;
-      appendDebugEvent('ambient', 'failed to discover mp3 tracks');
+      appendDebugEvent('ambient', 'failed to discover tracks, using fallback list');
       return ambientTracks;
     })
     .finally(() => {
@@ -799,7 +911,7 @@ async function loadAmbientTracks() {
 async function discoverAmbientTracks() {
   try {
     const response = await fetch(AMBIENT_DIRECTORY, { cache: 'no-store' });
-    if (!response.ok) return [];
+    if (!response.ok) return [...AMBIENT_FALLBACK_TRACKS];
 
     const listing = await response.text();
     const parser = new DOMParser();
@@ -807,7 +919,7 @@ async function discoverAmbientTracks() {
     const links = [...doc.querySelectorAll('a[href]')];
     const tracks = links
       .map((link) => link.getAttribute('href') || '')
-      .filter((href) => /\.mp3($|\?)/i.test(href))
+      .filter((href) => /\.(mp3|ogg|wav|m4a|aac|webm)($|\?)/i.test(href))
       .map((href) => {
         try {
           return new URL(href, AMBIENT_DIRECTORY).pathname
@@ -820,9 +932,10 @@ async function discoverAmbientTracks() {
       .map((path) => (path.startsWith('/') ? `.${path}` : path))
       .filter((value, idx, arr) => arr.indexOf(value) === idx);
 
-    return tracks;
+    if (tracks.length) return tracks;
+    return [...AMBIENT_FALLBACK_TRACKS];
   } catch {
-    return [];
+    return [...AMBIENT_FALLBACK_TRACKS];
   }
 }
 
@@ -831,6 +944,7 @@ function buildAmbientPlayer() {
   ambiencePlayer = new Audio();
   ambiencePlayer.preload = 'auto';
   ambiencePlayer.loop = false;
+  ambiencePlayer.crossOrigin = 'anonymous';
   ambiencePlayer.volume = ambientVolumeLevel;
 
   ambiencePlayer.addEventListener('ended', () => {
@@ -862,21 +976,38 @@ function buildAmbientPlayer() {
 
 function getNextAmbientTrack() {
   if (!ambientTracks.length) return null;
-  if (ambientTrackIndex < 0 || ambientTrackIndex >= ambientTracks.length) {
-    ambientTrackIndex = Math.floor(Math.random() * ambientTracks.length);
-    return ambientTracks[ambientTrackIndex];
+  if (ambientTracks.length === 1) {
+    currentAmbientTrack = ambientTracks[0];
+    ambientTrackIndex = 0;
+    return currentAmbientTrack;
   }
 
-  ambientTrackIndex = (ambientTrackIndex + 1) % ambientTracks.length;
-  return ambientTracks[ambientTrackIndex];
+  let nextTrack = ambientTracks[Math.floor(Math.random() * ambientTracks.length)];
+  let attempts = 0;
+  while (nextTrack === currentAmbientTrack && attempts < 10) {
+    nextTrack = ambientTracks[Math.floor(Math.random() * ambientTracks.length)];
+    attempts += 1;
+  }
+
+  currentAmbientTrack = nextTrack;
+  ambientTrackIndex = ambientTracks.indexOf(nextTrack);
+  return nextTrack;
 }
 
 function playRandomAmbientTrack(skipIfPaused = false) {
-  if (!musicToggle.checked && skipIfPaused) return;
+  if (skipIfPaused && (!musicToggle || !musicToggle.checked || !running || ambiencePausedByTimer)) return;
+
+  if (!ambientTracks.length) {
+    loadAmbientTracks().then((tracks) => {
+      if (tracks.length) playRandomAmbientTrack(skipIfPaused);
+    });
+    return;
+  }
+
   const player = buildAmbientPlayer();
   const track = getNextAmbientTrack();
   if (!track) {
-    appendDebugEvent('ambient', 'no .mp3 tracks discovered in ambient directory');
+    appendDebugEvent('ambient', 'no ambient tracks available');
     return;
   }
   player.src = track;
@@ -1277,6 +1408,12 @@ function syncMinuteThresholdTracking(remaining) {
   );
 }
 
+function syncVoiceThresholdTracking(remaining) {
+  voiceThresholdsTriggered = new Set(
+    VOICE_ANNOUNCEMENT_THRESHOLDS.filter((threshold) => remaining <= threshold),
+  );
+}
+
 function applyRemainingTime(rawRemaining) {
   const nextRemaining = clampNumber(rawRemaining, 0, ROUND_SECONDS);
   running = false;
@@ -1288,6 +1425,7 @@ function applyRemainingTime(rawRemaining) {
   previousRemaining = nextRemaining;
   lastUrgencyBeep = null;
   syncMinuteThresholdTracking(nextRemaining);
+  syncVoiceThresholdTracking(nextRemaining);
   if (debugMinutes) debugMinutes.value = String(Math.floor(nextRemaining / 60));
   if (debugSeconds) debugSeconds.value = String(Math.floor(nextRemaining % 60));
   if (debugTenths) debugTenths.value = String(Math.floor((nextRemaining % 1) * 10));
