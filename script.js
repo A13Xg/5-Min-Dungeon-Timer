@@ -151,15 +151,28 @@ const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
 let particles = [];
 
-function preloadImageAsset(src) {
+function preloadImageAsset(src, timeoutMs = 8000) {
   return new Promise((resolve) => {
     const image = new Image();
     image.decoding = 'async';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      appendDebugEvent('preload', `timeout ${src}`);
+      resolve(false);
+    }, timeoutMs);
     image.onload = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       appendDebugEvent('preload', `loaded ${src}`);
       resolve(true);
     };
     image.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       appendDebugEvent('preload', `failed ${src}`);
       resolve(false);
     };
@@ -176,7 +189,7 @@ async function preloadAllImages() {
 
 async function init() {
   await loadAmbientTracks();
-  await preloadAllImages();
+  preloadAllImages();
   initializeVolumeControls();
   initializeToggleControls();
   createDots();
@@ -557,7 +570,7 @@ function handleVoiceAnnouncements(remaining) {
   VOICE_ANNOUNCEMENT_THRESHOLDS.forEach((threshold) => {
     if (!voiceThresholdsTriggered.has(threshold) && wholeSeconds <= threshold && previousWholeSeconds > threshold) {
       voiceThresholdsTriggered.add(threshold);
-      const delaySeconds = threshold >= 60 ? Math.floor(threshold / 60) * DEFAULT_BEEP_SPACING + 0.12 : 0;
+      const delaySeconds = threshold >= 60 ? (Math.floor(threshold / 60) + 1) * DEFAULT_BEEP_SPACING : 0;
       speakTimeLeft(threshold, delaySeconds);
     }
   });
