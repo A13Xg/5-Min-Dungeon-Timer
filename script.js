@@ -976,8 +976,10 @@ function getNextAmbientTrack() {
   }
 
   let nextTrack = ambientTracks[Math.floor(Math.random() * ambientTracks.length)];
-  while (nextTrack === currentAmbientTrack) {
+  let attempts = 0;
+  while (nextTrack === currentAmbientTrack && attempts < 10) {
     nextTrack = ambientTracks[Math.floor(Math.random() * ambientTracks.length)];
+    attempts += 1;
   }
 
   currentAmbientTrack = nextTrack;
