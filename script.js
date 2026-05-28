@@ -146,6 +146,7 @@ let ambientStartRetryTimer = null;
 let pendingBeepTimers = [];
 let beepVolumeLevel = DEFAULT_BEEP_LEVEL;
 let ambientVolumeLevel = DEFAULT_AMBIENT_LEVEL;
+let imagePreloadStarted = false;
 
 const particleCanvas = document.getElementById('fallbackParticles');
 const pctx = particleCanvas ? particleCanvas.getContext('2d') : null;
@@ -187,9 +188,14 @@ async function preloadAllImages() {
   appendDebugEvent('preload', `${loadedCount}/${preloadTargets.length} image assets ready`);
 }
 
+function startDeferredImagePreload() {
+  if (imagePreloadStarted) return;
+  imagePreloadStarted = true;
+  void preloadAllImages();
+}
+
 async function init() {
   await loadAmbientTracks();
-  preloadAllImages();
   initializeVolumeControls();
   initializeToggleControls();
   createDots();
@@ -370,6 +376,7 @@ function wireEvents() {
 
   const unlockOnce = () => {
     unlockAudioContext();
+    startDeferredImagePreload();
     document.removeEventListener('pointerdown', unlockOnce);
     document.removeEventListener('keydown', unlockOnce);
     document.removeEventListener('touchstart', unlockOnce);
@@ -988,7 +995,7 @@ function getNextAmbientTrack() {
 }
 
 function playRandomAmbientTrack(skipIfPaused = false) {
-  if (!musicToggle.checked && skipIfPaused) return;
+  if (skipIfPaused && (!musicToggle || !musicToggle.checked || !running || ambiencePausedByTimer)) return;
 
   if (!ambientTracks.length) {
     loadAmbientTracks().then((tracks) => {
